@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:';
+import '../dtos/CharacterRequest.dart';
 
 // Servicio para manejar las peticiones HTTP con Dio
 class RickAndMortyService {
