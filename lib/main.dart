@@ -178,9 +178,7 @@ class _SecureHomePageState extends State<SecureHomePage>
             ),
             const SizedBox(height: 16),
             Text(
-              NativeSecurityService.isSupported
-                  ? 'Plataforma: Android ✅'
-                  : 'Plataforma: No soportada ❌',
+              'Plataforma: ${NativeSecurityService.platformName} ${NativeSecurityService.isSupported ? '✅' : '❌'}',
               style: TextStyle(
                 color: NativeSecurityService.isSupported
                     ? Colors.green

@@ -7,8 +7,8 @@ class NativeSecurityService {
 
   /// Habilita la prevención de capturas de pantalla
   static Future<bool> enableScreenSecurity() async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
-      debugPrint('⚠️ Prevención de capturas solo disponible en Android');
+    if (!isSupported) {
+      debugPrint('⚠️ Prevención de capturas no disponible en esta plataforma');
       return false;
     }
 
@@ -16,9 +16,9 @@ class NativeSecurityService {
       final bool result = await _channel.invokeMethod('enableScreenSecurity');
       _isSecured = result;
       if (result) {
-        debugPrint('✅ Capturas de pantalla bloqueadas');
+        debugPrint('✅ ${platformName}: Capturas de pantalla bloqueadas');
       } else {
-        debugPrint('❌ No se pudo bloquear capturas');
+        debugPrint('❌ ${platformName}: No se pudo bloquear capturas');
       }
       return result;
     } on PlatformException catch (e) {
@@ -29,7 +29,7 @@ class NativeSecurityService {
 
   /// Deshabilita la prevención de capturas de pantalla
   static Future<bool> disableScreenSecurity() async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
+    if (!isSupported) {
       return false;
     }
 
@@ -37,7 +37,7 @@ class NativeSecurityService {
       final bool result = await _channel.invokeMethod('disableScreenSecurity');
       _isSecured = !result;
       if (result) {
-        debugPrint('✅ Capturas de pantalla permitidas');
+        debugPrint('✅ ${platformName}: Capturas de pantalla permitidas');
       }
       return result;
     } on PlatformException catch (e) {
@@ -46,16 +46,66 @@ class NativeSecurityService {
     }
   }
 
+  /// Detecta si se está grabando la pantalla (iOS 11+)
+  static Future<bool> checkScreenRecording() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
+
+    try {
+      final bool isRecording = await _channel.invokeMethod('checkScreenRecording');
+      return isRecording;
+    } on PlatformException catch (e) {
+      debugPrint('❌ Error al verificar grabación: ${e.message}');
+      return false;
+    }
+  }
+
   /// Verifica si la seguridad está habilitada
   static bool get isSecured => _isSecured;
 
   /// Verifica si la plataforma soporta estas características
-  static bool get isSupported => defaultTargetPlatform == TargetPlatform.android;
+  static bool get isSupported =>
+      defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// Obtiene el nombre de la plataforma
+  static String get platformName {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iOS';
+      default:
+        return 'No soportada';
+    }
+  }
 
   /// Inicializa la seguridad al abrir la app
   static Future<void> initialize() async {
     if (isSupported) {
       await enableScreenSecurity();
+
+      // Solo para iOS, inicializar monitoreo de grabación
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        try {
+          await _channel.invokeMethod('startScreenRecordingMonitoring');
+          await _channel.invokeMethod('preventAppSwitcherSnapshot');
+        } catch (e) {
+          debugPrint('⚠️ Error al inicializar funciones adicionales de iOS: $e');
+        }
+      }
+    }
+  }
+
+  /// Cleanup cuando se cierra la app
+  static Future<void> dispose() async {
+    if (isSupported) {
+      try {
+        await disableScreenSecurity();
+      } catch (e) {
+        debugPrint('⚠️ Error durante cleanup: $e');
+      }
     }
   }
 }
